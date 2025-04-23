@@ -4,7 +4,7 @@ import torch
 from transformers import pipeline
 import streamlit as st
 import time
-from config import MODEL_NAME
+from config import MODEL_NAME, CHAT_TEMPLATE
 from huggingface_hub import login
 
 # モデルをキャッシュして再利用
@@ -42,7 +42,12 @@ def generate_response(pipe, user_question):
             {"role": "user", "content": user_question},
         ]
         # max_new_tokensを調整可能にする（例）
-        outputs = pipe(messages, max_new_tokens=512, do_sample=True, temperature=0.7, top_p=0.9)
+        # outputs = pipe(messages, max_new_tokens=512, do_sample=True, temperature=0.7, top_p=0.9)
+        if CHAT_TEMPLATE == "":
+           prompt = messages
+        else: 
+           prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, chat_template=CHAT_TEMPLATE)
+        outputs = pipe(prompt, max_new_tokens=256, do_sample=True, temperature=0.7, top_k=50, top_p=0.95)
 
         # Gemmaの出力形式に合わせて調整が必要な場合がある
         # 最後のassistantのメッセージを取得
@@ -65,6 +70,8 @@ def generate_response(pipe, user_question):
                # 特定の開始トークンを探すなど、モデルに合わせた調整
                if "<start_of_turn>model" in possible_response:
                     assistant_response = possible_response.split("<start_of_turn>model\n")[-1].strip()
+               elif "<|assistant|>" in possible_response:
+                    assistant_response = possible_response.split("<|assistant|>")[1]
                else:
                     assistant_response = possible_response # フォールバック
 
